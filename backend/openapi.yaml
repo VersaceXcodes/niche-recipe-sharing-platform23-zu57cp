@@ -1,0 +1,1416 @@
+openapi: 3.0.0
+info:
+  title: KetoAthlete Eats API
+  version: 1.0.0
+  description: API for KetoAthlete Eats, a niche recipe sharing platform for
+    athletes following a ketogenic diet.
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development server
+paths:
+  /auth/register:
+    post:
+      operationId: register_user
+      summary: Register a new user account.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+              properties:
+                username:
+                  type: string
+                  description: Unique username for the user. Must be alphanumeric.
+                  example: keto_athlete_123
+                email:
+                  type: string
+                  format: email
+                  description: User's email address. Must be unique and valid.
+                  example: athlete@example.com
+                password:
+                  type: string
+                  description: User's password. Minimum 8 characters, alphanumeric + special
+                    chars.
+                  example: SecureP@ssw0rd!
+                first_name:
+                  type: string
+                  description: User's first name (optional).
+                  example: Alex
+                last_name:
+                  type: string
+                  description: User's last name (optional).
+                  example: Runner
+      responses:
+        "201":
+          description: User registered successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User registered successfully. Please check your email for verification.
+                  user_id:
+                    type: number
+                    description: The ID of the newly created user.
+        "400":
+          description: Bad request (e.g., invalid input format).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict (e.g., username or email already exists).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/login:
+    post:
+      operationId: login_user
+      summary: Log in an existing user.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User's registered email address.
+                  example: athlete@example.com
+                password:
+                  type: string
+                  description: User's password.
+                  example: SecureP@ssw0rd!
+      responses:
+        "200":
+          description: User logged in successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                  - access_token
+                  - user
+                properties:
+                  message:
+                    type: string
+                    example: Login successful
+                  access_token:
+                    type: string
+                    description: JWT authentication token.
+                    example: eyJhbG...
+                  user:
+                    $ref: "#/components/schemas/UserSummary"
+        "401":
+          description: Unauthorized (invalid credentials).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/forgot-password:
+    post:
+      operationId: request_password_reset
+      summary: Request a password reset link via email.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: The email address associated with the account.
+                  example: athlete@example.com
+      responses:
+        "200":
+          description: Password reset instructions sent if the email exists.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: If an account with that email exists, a password reset link has been
+                      sent.
+        "400":
+          description: Bad request (e.g., invalid email format).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/reset-password:
+    post:
+      operationId: reset_password
+      summary: Reset the user's password using a reset token.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reset_token
+                - new_password
+                - confirm_password
+              properties:
+                reset_token:
+                  type: string
+                  description: The valid password reset token received via email.
+                  example: reset-token-xyz123
+                new_password:
+                  type: string
+                  description: The new password for the account. Minimum 8 characters,
+                    alphanumeric + special chars.
+                  example: NewSecureP@ssw0rd!
+                confirm_password:
+                  type: string
+                  description: Confirmation of the new password.
+                  example: NewSecureP@ssw0rd!
+      responses:
+        "200":
+          description: Password reset successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Password reset successfully. You can now log in.
+        "400":
+          description: Bad request (e.g., invalid token, passwords mismatch, weak password).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /users/me:
+    get:
+      operationId: get_current_user_profile
+      summary: Get the profile information of the currently authenticated user.
+      tags:
+        - User Profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: update_current_user_profile
+      summary: Update the profile information of the currently authenticated user.
+      tags:
+        - User Profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: New username. Optional. Must be unique.
+                  example: updated_athlete
+                first_name:
+                  type: string
+                  description: New first name. Optional.
+                  example: Alexander
+                last_name:
+                  type: string
+                  description: New last name. Optional.
+                  example: Runner
+                current_password:
+                  type: string
+                  description: Current password, required if changing password.
+                  example: SecureP@ssw0rd!
+                new_password:
+                  type: string
+                  description: New password. Optional. Minimum 8 characters, alphanumeric +
+                    special chars.
+                  example: NewSecureP@ssw0rd!
+      responses:
+        "200":
+          description: Profile updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Profile updated successfully.
+                  user:
+                    $ref: "#/components/schemas/UserSummary"
+        "400":
+          description: Bad request (e.g., invalid input, password requirements not met).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict (e.g., username already taken).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /users/me/profile-picture:
+    post:
+      operationId: upload_profile_picture
+      summary: Upload or update the user's profile picture.
+      tags:
+        - User Profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - profile_picture
+              properties:
+                profile_picture:
+                  type: string
+                  format: binary
+                  description: The image file (JPEG or PNG) for the profile picture.
+      responses:
+        "200":
+          description: Profile picture updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Profile picture updated successfully.
+                  profile_picture_url:
+                    type: string
+                    description: URL of the newly uploaded profile picture.
+                    example: http://localhost:3000/uploads/profile_pics/user123.jpg
+        "400":
+          description: Bad request (e.g., invalid file type, file too large).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /recipes:
+    post:
+      operationId: submit_recipe
+      summary: Submit a new recipe.
+      tags:
+        - Recipes
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - cover_photo
+                - prep_time_minutes
+                - cook_time_minutes
+                - servings
+                - difficulty_level
+                - ingredients
+                - instructions
+              properties:
+                title:
+                  type: string
+                  description: Name of the recipe.
+                  example: Keto Chicken Stir-fry
+                description:
+                  type: string
+                  description: Brief overview of the recipe.
+                  example: A quick and flavorful keto-friendly chicken stir-fry packed with
+                    vegetables.
+                cover_photo:
+                  type: string
+                  format: binary
+                  description: The main image for the recipe (JPEG or PNG).
+                prep_time_minutes:
+                  type: number
+                  description: Preparation time in minutes.
+                  example: 15
+                cook_time_minutes:
+                  type: number
+                  description: Cooking time in minutes.
+                  example: 20
+                servings:
+                  type: number
+                  description: Number of servings the recipe yields.
+                  example: 4
+                difficulty_level:
+                  type: string
+                  enum:
+                    - Easy
+                    - Medium
+                    - Hard
+                  description: Difficulty level of the recipe.
+                  example: Easy
+                nutri_net_carbs_grams_per_serving:
+                  type: number
+                  format: float
+                  description: Estimated net carbs per serving in grams (optional).
+                  example: 10.5
+                nutri_protein_grams_per_serving:
+                  type: number
+                  format: float
+                  description: Estimated protein per serving in grams (optional).
+                  example: 25
+                nutri_fat_grams_per_serving:
+                  type: number
+                  format: float
+                  description: Estimated fat per serving in grams (optional).
+                  example: 30.2
+                notes_tips:
+                  type: string
+                  description: Additional preparation tips or variations (optional).
+                  example: Add chili flakes for extra spice.
+                ingredients:
+                  type: array
+                  description: List of ingredients required for the recipe.
+                  minItems: 1
+                  items:
+                    $ref: "#/components/schemas/IngredientInput"
+                instructions:
+                  type: array
+                  description: Step-by-step cooking instructions.
+                  minItems: 1
+                  items:
+                    $ref: "#/components/schemas/InstructionInput"
+                tags:
+                  type: array
+                  description: List of relevant tags for the recipe (optional).
+                  items:
+                    type: string
+                    example: High Protein
+      responses:
+        "201":
+          description: Recipe submitted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Recipe submitted successfully.
+                  recipe_id:
+                    type: number
+                    description: The ID of the newly created recipe.
+        "400":
+          description: Bad request (e.g., missing required fields, invalid data).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: get_all_recipes
+      summary: Get a list of all recipes with filtering and sorting options.
+      tags:
+        - Recipes
+      parameters:
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Filter recipes by comma-separated tags (e.g., "High Protein,Quick
+            Meals").
+          example: High Protein,Quick Meals
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+          description: Filter recipes by comma-separated difficulty levels (e.g.,
+            "Easy,Medium").
+          example: Easy
+        - name: max_prep_time
+          in: query
+          schema:
+            type: integer
+          description: Filter recipes by maximum preparation time in minutes.
+          example: 30
+        - name: max_cook_time
+          in: query
+          schema:
+            type: integer
+          description: Filter recipes by maximum cooking time in minutes.
+          example: 30
+        - name: min_rating
+          in: query
+          schema:
+            type: number
+            format: float
+          description: Filter recipes by minimum average rating (e.g., 4.0). Only
+            considers recipes with at least one rating.
+          example: 4
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum:
+              - newest
+              - rating
+              - popularity
+          description: Sort recipes by 'newest', 'rating' (highest first), or 'popularity'
+            (based on number of ratings).
+          example: newest
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination.
+          example: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Number of recipes per page.
+          example: 10
+      responses:
+        "200":
+          description: A list of recipes matching the criteria.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedRecipesResponse"
+        "400":
+          description: Bad request (e.g., invalid query parameters).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /recipes/{recipe_id}:
+    get:
+      operationId: get_recipe_by_id
+      summary: Get details of a specific recipe.
+      tags:
+        - Recipes
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The ID of the recipe to retrieve.
+          example: 101
+      responses:
+        "200":
+          description: Recipe details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecipeDetail"
+        "404":
+          description: Recipe not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: update_recipe_by_id
+      summary: Update an existing recipe (owner only).
+      tags:
+        - Recipes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The ID of the recipe to update.
+          example: 101
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: New title of the recipe.
+                  example: Keto Chicken Stir-fry - Updated
+                description:
+                  type: string
+                  description: New description of the recipe.
+                cover_photo:
+                  type: string
+                  format: binary
+                  description: New cover photo for the recipe (JPEG or PNG).
+                prep_time_minutes:
+                  type: number
+                  description: New preparation time in minutes.
+                cook_time_minutes:
+                  type: number
+                  description: New cooking time in minutes.
+                servings:
+                  type: number
+                  description: New number of servings.
+                difficulty_level:
+                  type: string
+                  enum:
+                    - Easy
+                    - Medium
+                    - Hard
+                  description: New difficulty level.
+                nutri_net_carbs_grams_per_serving:
+                  type: number
+                  format: float
+                  description: New estimated net carbs per serving in grams.
+                nutri_protein_grams_per_serving:
+                  type: number
+                  format: float
+                  description: New estimated protein per serving in grams.
+                nutri_fat_grams_per_serving:
+                  type: number
+                  format: float
+                  description: New estimated fat per serving in grams.
+                notes_tips:
+                  type: string
+                  description: New additional notes or tips.
+                ingredients:
+                  type: array
+                  description: The complete, updated list of ingredients. Existing ingredients
+                    will be replaced.
+                  items:
+                    $ref: "#/components/schemas/IngredientInput"
+                instructions:
+                  type: array
+                  description: The complete, updated list of instructions. Existing instructions
+                    will be replaced.
+                  items:
+                    $ref: "#/components/schemas/InstructionInput"
+                tags:
+                  type: array
+                  description: The complete, updated list of tags. Existing tags will be replaced.
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Recipe updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Recipe updated successfully.
+        "400":
+          description: Bad request (e.g., invalid data).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden (user is not the owner of the recipe).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Recipe not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: delete_recipe_by_id
+      summary: Delete a recipe (owner only).
+      tags:
+        - Recipes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The ID of the recipe to delete.
+          example: 101
+      responses:
+        "200":
+          description: Recipe deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Recipe deleted successfully.
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden (user is not the owner of the recipe).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Recipe not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /search/recipes:
+    get:
+      operationId: search_recipes
+      summary: Search recipes by keywords and apply filters/sorting.
+      tags:
+        - Search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The search keyword (searches title, description, and ingredients).
+          example: Chicken Stir-fry
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Filter recipes by comma-separated tags (e.g., "High Protein,Quick
+            Meals").
+          example: High Protein
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+          description: Filter recipes by comma-separated difficulty levels (e.g.,
+            "Easy,Medium").
+          example: Easy
+        - name: max_prep_time
+          in: query
+          schema:
+            type: integer
+          description: Filter recipes by maximum preparation time in minutes.
+          example: 20
+        - name: max_cook_time
+          in: query
+          schema:
+            type: integer
+          description: Filter recipes by maximum cooking time in minutes.
+          example: 25
+        - name: min_rating
+          in: query
+          schema:
+            type: number
+            format: float
+          description: Filter recipes by minimum average rating (e.g., 3.5).
+          example: 3.5
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum:
+              - newest
+              - rating
+              - popularity
+          description: Sort recipes by 'newest', 'rating' (highest first), or 'popularity'.
+          example: rating
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination.
+          example: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Number of recipes per page.
+          example: 10
+      responses:
+        "200":
+          description: Search results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedRecipesResponse"
+        "400":
+          description: Bad request (e.g., missing search query).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /users/me/saved-recipes:
+    post:
+      operationId: save_recipe
+      summary: Save a recipe to the user's favorites.
+      tags:
+        - User Interactions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - recipe_id
+              properties:
+                recipe_id:
+                  type: integer
+                  description: The ID of the recipe to save.
+                  example: 101
+      responses:
+        "201":
+          description: Recipe saved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Recipe saved successfully.
+        "400":
+          description: Bad request (e.g., invalid recipe ID, already saved).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Recipe not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: get_saved_recipes
+      summary: Get the list of recipes saved by the current user.
+      tags:
+        - User Interactions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of saved recipes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recipes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RecipeSummary"
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /users/me/saved-recipes/{recipe_id}:
+    delete:
+      operationId: unsave_recipe
+      summary: Remove a saved recipe from the user's favorites.
+      tags:
+        - User Interactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The ID of the recipe to unsave.
+          example: 101
+      responses:
+        "200":
+          description: Recipe unsaved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Recipe unsaved successfully.
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Recipe not found in the user's saved list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /recipes/{recipe_id}/ratings:
+    post:
+      operationId: submit_recipe_rating
+      summary: Submit or update a rating for a recipe.
+      tags:
+        - User Interactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The ID of the recipe to rate.
+          example: 101
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rating
+              properties:
+                rating:
+                  type: number
+                  format: float
+                  description: The rating value (1.0 to 5.0).
+                  minimum: 1
+                  maximum: 5
+                  example: 4.5
+      responses:
+        "201":
+          description: Rating submitted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Rating submitted successfully.
+                  recipe_id:
+                    type: number
+                  average_rating:
+                    type: number
+                    format: float
+                    description: The updated average rating for the recipe.
+        "400":
+          description: Bad request (e.g., invalid rating value).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Recipe not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /recipes/{recipe_id}/comments:
+    post:
+      operationId: submit_recipe_comment
+      summary: Add a comment to a recipe.
+      tags:
+        - User Interactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipe_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The ID of the recipe to comment on.
+          example: 101
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - comment_text
+              properties:
+                comment_text:
+                  type: string
+                  description: The content of the comment.
+                  example: This was amazing! I added extra garlic.
+      responses:
+        "201":
+          description: Comment posted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Comment posted successfully.
+                  comment:
+                    $ref: "#/components/schemas/CommentDetail"
+        "400":
+          description: Bad request (e.g., empty comment text).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Recipe not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /comments/{comment_id}:
+    delete:
+      operationId: delete_comment_by_id
+      summary: Delete a comment (author only).
+      tags:
+        - User Interactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: comment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The ID of the comment to delete.
+          example: 501
+      responses:
+        "200":
+          description: Comment deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Comment deleted successfully.
+        "401":
+          description: Unauthorized (authentication token missing or invalid).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden (user is not the author of the comment).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Comment not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter the JWT token obtained after login.
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: A message describing the error.
+      example:
+        error: Resource not found
+    UserSummary:
+      type: object
+      required:
+        - user_id
+        - username
+      properties:
+        user_id:
+          type: integer
+          description: Unique user identifier.
+        username:
+          type: string
+          description: User's chosen username.
+        profile_picture_url:
+          type: string
+          nullable: true
+          description: URL to the user's profile picture, or null if not set.
+    UserProfile:
+      type: object
+      required:
+        - user_id
+        - username
+        - email
+      properties:
+        user_id:
+          type: integer
+          description: Unique user identifier.
+        username:
+          type: string
+          description: User's chosen username.
+        email:
+          type: string
+          format: email
+          description: User's registered email address.
+        first_name:
+          type: string
+          nullable: true
+          description: User's first name.
+        last_name:
+          type: string
+          nullable: true
+          description: User's last name.
+        profile_picture_url:
+          type: string
+          nullable: true
+          description: URL to the user's profile picture, or null if not set.
+    IngredientInput:
+      type: object
+      required:
+        - quantity
+        - name
+      properties:
+        quantity:
+          type: number
+          description: The amount of the ingredient.
+          example: 1
+        unit:
+          type: string
+          nullable: true
+          description: The unit of measurement (e.g., 'cup', 'g', 'ml').
+          example: cup
+        name:
+          type: string
+          description: Name of the ingredient.
+          example: Chicken Breast
+    InstructionInput:
+      type: object
+      required:
+        - step_number
+        - description
+      properties:
+        step_number:
+          type: integer
+          description: The sequence number of the instruction step.
+          example: 1
+        description:
+          type: string
+          description: The instruction text.
+          example: Cut the chicken breast into bite-sized pieces.
+    RecipeSummary:
+      type: object
+      required:
+        - recipe_id
+        - title
+        - cover_photo_url
+        - prep_time_minutes
+        - cook_time_minutes
+        - difficulty_level
+        - submitter
+      properties:
+        recipe_id:
+          type: integer
+          description: Unique identifier for the recipe.
+        title:
+          type: string
+          description: The title of the recipe.
+        description:
+          type: string
+          description: A brief description of the recipe.
+        cover_photo_url:
+          type: string
+          description: URL of the recipe's cover photo.
+        prep_time_minutes:
+          type: integer
+          description: Preparation time in minutes.
+        cook_time_minutes:
+          type: integer
+          description: Cooking time in minutes.
+        difficulty_level:
+          type: string
+          enum:
+            - Easy
+            - Medium
+            - Hard
+          description: Difficulty level of the recipe.
+        average_rating:
+          type: number
+          format: float
+          nullable: true
+          description: The average rating of the recipe (null if not rated).
+        user_id:
+          type: integer
+          description: ID of the user who submitted the recipe.
+        username:
+          type: string
+          description: Username of the recipe submitter.
+        tags:
+          type: array
+          items:
+            type: string
+          description: List of tags associated with the recipe.
+        saved_at:
+          type: string
+          nullable: true
+          format: date-time
+          description: Timestamp when the recipe was saved.
+    RecipeDetail:
+      type: object
+      required:
+        - recipe_id
+        - title
+        - description
+        - cover_photo_url
+        - prep_time_minutes
+        - cook_time_minutes
+        - servings
+        - difficulty_level
+        - ingredients
+        - instructions
+        - submitter
+      properties:
+        recipe_id:
+          type: integer
+          description: Unique identifier for the recipe.
+        title:
+          type: string
+          description: The title of the recipe.
+        description:
+          type: string
+          description: A detailed description of the recipe.
+        cover_photo_url:
+          type: string
+          description: URL of the recipe's cover photo.
+        prep_time_minutes:
+          type: integer
+          description: Preparation time in minutes.
+        cook_time_minutes:
+          type: integer
+          description: Cooking time in minutes.
+        servings:
+          type: integer
+          description: Number of servings the recipe yields.
+        difficulty_level:
+          type: string
+          enum:
+            - Easy
+            - Medium
+            - Hard
+          description: Difficulty level of the recipe.
+        nutri_net_carbs_grams_per_serving:
+          type: number
+          format: float
+          nullable: true
+          description: Estimated net carbs per serving in grams.
+        nutri_protein_grams_per_serving:
+          type: number
+          format: float
+          nullable: true
+          description: Estimated protein per serving in grams.
+        nutri_fat_grams_per_serving:
+          type: number
+          format: float
+          nullable: true
+          description: Estimated fat per serving in grams.
+        notes_tips:
+          type: string
+          nullable: true
+          description: Additional notes or tips provided by the submitter.
+        average_rating:
+          type: number
+          format: float
+          nullable: true
+          description: The average rating of the recipe (null if not rated).
+        rating_count:
+          type: integer
+          description: The total number of ratings given to the recipe.
+        submitter:
+          $ref: "#/components/schemas/UserSummary"
+        tags:
+          type: array
+          items:
+            type: string
+          description: List of tags associated with the recipe.
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeIngredientDetail"
+        instructions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeInstructionDetail"
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommentDetail"
+    RecipeIngredientDetail:
+      type: object
+      required:
+        - quantity
+        - name
+      properties:
+        quantity:
+          type: number
+          description: The amount of the ingredient.
+        unit:
+          type: string
+          nullable: true
+          description: The unit of measurement.
+        name:
+          type: string
+          description: Name of the ingredient.
+        order:
+          type: integer
+          description: The order of this ingredient in the list.
+    RecipeInstructionDetail:
+      type: object
+      required:
+        - step_number
+        - description
+      properties:
+        step_number:
+          type: integer
+          description: The sequence number of the instruction step.
+        description:
+          type: string
+          description: The instruction text.
+    CommentDetail:
+      type: object
+      required:
+        - comment_id
+        - user
+        - comment_text
+        - created_at
+      properties:
+        comment_id:
+          type: integer
+          description: Unique identifier for the comment.
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        comment_text:
+          type: string
+          description: The content of the comment.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the comment was posted.
+    PaginatedRecipesResponse:
+      type: object
+      properties:
+        recipes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeSummary"
+        pagination:
+          type: object
+          properties:
+            total_items:
+              type: integer
+              description: Total number of items available.
+            total_pages:
+              type: integer
+              description: Total number of pages.
+            current_page:
+              type: integer
+              description: The current page number.
+            items_per_page:
+              type: integer
+              description: Number of items per page.
